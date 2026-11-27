@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f4d32" />
+    <meta name="description" content="Price a North Texas lawn from mowable turf. +P Services, Prosper and nearby." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="+P Quote" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>+P Lawn Quote</title>
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-192.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="top">
+        <div class="brand">
+          <span class="mark" aria-hidden="true">+P</span>
+          <div>
+            <h1>+P Lawn Quote</h1>
+            <p class="sub">+P Services · North Texas</p>
+          </div>
+        </div>
+        <button type="button" id="open-saved" class="ghost">Saved</button>
+      </header>
+
+      <form id="search" class="search" role="search">
+        <label class="sr-only" for="address">Property address</label>
+        <input
+          id="address"
+          name="address"
+          inputmode="text"
+          autocomplete="street-address"
+          placeholder="109 W Fifth St, Prosper, TX"
+          required
+        />
+        <button type="submit" id="find">Find</button>
+      </form>
+      <p id="status" class="status" role="status">
+        Search a Prosper, Celina, Frisco, McKinney, Aubrey, or Little Elm address. The price follows the turf that is left after the house, driveway, patio, pool, and beds come off the lot.
+      </p>
+      <ul id="candidates" class="candidates" hidden></ul>
+
+      <div class="workspace">
+        <div>
+          <div class="stage">
+            <div id="map" role="application" aria-label="Satellite map of the property"></div>
+            <div class="drawbar" role="toolbar" aria-label="Drawing tools">
+              <button type="button" data-tool="pan" class="on" aria-pressed="true">Move</button>
+              <button type="button" data-tool="lot" aria-pressed="false">Lot</button>
+              <button type="button" data-tool="house" aria-pressed="false">House</button>
+              <button type="button" data-tool="driveway" aria-pressed="false">Driveway</button>
+              <button type="button" data-tool="patio" aria-pressed="false">Patio</button>
+              <button type="button" data-tool="pool" aria-pressed="false">Pool</button>
+              <button type="button" data-tool="beds" aria-pressed="false">Beds</button>
+            </div>
+          </div>
+          <div id="hint" class="hint" hidden>
+            <p id="hint-text"></p>
+            <div class="hint-actions">
+              <button type="button" id="undo-point" class="ghost">Undo</button>
+              <button type="button" id="close-shape">Close shape</button>
+              <button type="button" id="cancel-draw" class="ghost">Cancel</button>
+              <button type="button" id="delete-vertex" class="ghost">Delete corner</button>
+              <button type="button" id="redraw-shape" class="ghost">Redraw</button>
+              <button type="button" id="delete-shape" class="ghost">Delete shape</button>
+            </div>
+          </div>
+        </div>
+
+        <section class="sheet" aria-live="polite">
+          <h2>Yard</h2>
+          <div class="mowable">
+            <span>Mowable turf</span>
+            <strong id="mowable-value">Add a lot</strong>
+          </div>
+          <dl id="areas" class="areas"></dl>
+          <p id="adjust-note" class="note" hidden></p>
+          <button type="button" id="add-roofs" hidden>Add other roofs on this lot</button>
+
+          <h2>Quote</h2>
+          <div id="prices" class="prices"></div>
+          <p id="tier-note" class="tier-note"></p>
+          <div class="actions">
+            <button type="button" id="copy-quote" disabled>Copy quote</button>
+            <button type="button" id="save-quote" class="ghost" disabled>Save on this phone</button>
+            <button type="button" id="edit-rates" class="ghost">Edit rates</button>
+          </div>
+          <p id="sources" class="sources"></p>
+        </section>
+      </div>
+
+      <footer>
+        <p>+P Services · call or text (214) 995-3002. Outlines are for quoting, not surveys. Add this page to your home screen to use it like an app.</p>
+      </footer>
+    </div>
+
+    <dialog id="rates-dialog">
+      <header>
+        <h3>Rate table</h3>
+        <button type="button" id="close-rates" class="ghost">Close</button>
+      </header>
+      <div class="dialog-body">
+        <form id="rates-form" class="rate-fields">
+          <label>Weekly base ($) <input name="weeklyBase" type="number" min="0" step="1" inputmode="decimal" /></label>
+          <label>Included turf (sq ft) <input name="includedSqft" type="number" min="0" step="100" inputmode="numeric" /></label>
+          <label>Extra step (sq ft) <input name="tierSqft" type="number" min="1" step="100" inputmode="numeric" /></label>
+          <label>Price per step ($) <input name="tierPrice" type="number" min="0" step="1" inputmode="decimal" /></label>
+          <label>Biweekly add-on per visit ($) <input name="biweeklySurcharge" type="number" step="1" inputmode="decimal" /></label>
+          <label>One-time base ($) <input name="oneTimeBase" type="number" min="0" step="1" inputmode="decimal" /></label>
+          <label>Minimum charge ($) <input name="minimum" type="number" min="0" step="1" inputmode="decimal" /></label>
+        </form>
+        <p class="help">Weekly visits start at the base and cover the included turf. Each extra step, rounded up, adds the step price. Biweekly is the weekly visit plus the add-on. A one-time cut starts at its own base, then uses the same steps. Nothing prices below the minimum. The default one-time base is $85.</p>
+      </div>
+      <menu>
+        <button type="button" id="reset-rates" class="ghost">Reset defaults</button>
+      </menu>
+    </dialog>
+
+    <dialog id="quote-dialog">
+      <header>
+        <h3 id="quote-title">Quote</h3>
+        <button type="button" id="close-quote" class="ghost">Close</button>
+      </header>
+      <div class="dialog-body">
+        <p id="quote-note" class="help"></p>
+        <pre id="quote-text" class="quote-text"></pre>
+      </div>
+    </dialog>
+
+    <dialog id="saved-dialog">
+      <header>
+        <h3>Saved quotes</h3>
+        <button type="button" id="close-saved" class="ghost">Close</button>
+      </header>
+      <div class="dialog-body">
+        <p id="saved-empty" class="help">No quotes saved on this phone yet.</p>
+        <ul id="saved-list" class="saved-list"></ul>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

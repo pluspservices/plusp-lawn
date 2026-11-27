@@ -1,4 +1,4 @@
-const CACHE = "plusp-lawn-quote-v1";
+const CACHE = "plusp-lawn-quote-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

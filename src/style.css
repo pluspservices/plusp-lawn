@@ -81,17 +81,11 @@ button:focus-visible, input:focus-visible {
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
 .mark {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
+  width: 58px;
+  height: 58px;
   flex: 0 0 auto;
-  background: var(--green);
-  color: #f4f1e8;
-  border-radius: 14px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  font-size: 18px;
+  object-fit: contain;
+  background: #fff;
 }
 
 h1 {

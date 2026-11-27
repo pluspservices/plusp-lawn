@@ -10,6 +10,7 @@ const STYLES = {
   patio: { color: "#fff1cc", weight: 2, fillColor: "#d7b56a", fillOpacity: 0.62 },
   pool: { color: "#d7f3ff", weight: 2, fillColor: "#2b8cbf", fillOpacity: 0.55 },
   beds: { color: "#d8f3c5", weight: 2, fillColor: "#1f4d32", fillOpacity: 0.5 },
+  other: { color: "#f6e7ff", weight: 2, fillColor: "#7a4e8a", fillOpacity: 0.5 },
 };
 
 let extraSerial = 1;
@@ -27,8 +28,8 @@ function vertexIcon(active) {
   return L.divIcon({
     className: active ? "vertex on" : "vertex",
     html: "<span></span>",
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
@@ -84,7 +85,21 @@ export function createMap(element, onUpdate) {
   let selectedId = null;
   let editing = false;
   let selectedVertex = null;
+  let panMode = false;
   let suppressClick = false;
+  let gesture = null;
+  let ignoreClickUntil = 0;
+
+  function placing() {
+    return Boolean(draft) && !panMode;
+  }
+
+  function syncInteraction() {
+    const lockPan = placing() || (editing && !panMode && !draft);
+    if (lockPan) map.dragging.disable();
+    else map.dragging.enable();
+    element.classList.toggle("is-drawing", placing());
+  }
 
   function allShapes() {
     return [shapes.lot, shapes.house, ...shapes.extras].filter(Boolean);
@@ -116,6 +131,7 @@ export function createMap(element, onUpdate) {
       draft: draft
         ? { kind: draft.kind, count: draft.points.length, canClose: draft.points.length >= 3 }
         : null,
+      panning: panMode,
       selected: selected
         ? {
             id: selected.id,
@@ -138,16 +154,22 @@ export function createMap(element, onUpdate) {
     for (const shape of allShapes()) {
       const style = { ...(STYLES[shape.kind] || STYLES.beds) };
       if (shape.id === selectedId) style.weight = (style.weight || 2) + 2;
-      const layer = L.polygon(latLngRings(shape.rings), style);
+      const layer = L.polygon(latLngRings(shape.rings), { ...style, interactive: !placing() });
       layer.on("click", (event) => {
+        if (Date.now() < ignoreClickUntil) return;
+        if (placing()) {
+          L.DomEvent.stop(event);
+          addDraftPoint(event.latlng);
+          ignoreClickUntil = Date.now() + 450;
+          return;
+        }
         L.DomEvent.stop(event);
         suppressClick = true;
-        if (draft) return;
         selectedId = shape.id;
         editing = true;
+        panMode = false;
         selectedVertex = null;
-        renderShapes();
-        renderHandles();
+        renderAll();
         emit();
       });
       layer.addTo(shapeLayer);
@@ -200,18 +222,26 @@ export function createMap(element, onUpdate) {
     const latLngs = draft.points.map(([lng, lat]) => [lat, lng]);
     const style = STYLES[draft.kind] || STYLES.lot;
     if (latLngs.length >= 2) {
-      L.polyline(latLngs, { color: style.color, weight: 3, dashArray: "6 6" }).addTo(draftLayer);
+      L.polyline(latLngs, {
+        color: style.color,
+        weight: 3,
+        dashArray: "6 6",
+        interactive: false,
+      }).addTo(draftLayer);
     }
     if (latLngs.length >= 3) {
-      L.polygon(latLngs, { ...style, fillOpacity: 0.2, dashArray: "6 6" }).addTo(draftLayer);
+      L.polygon(latLngs, { ...style, fillOpacity: 0.25, dashArray: "6 6", interactive: false }).addTo(
+        draftLayer,
+      );
     }
     latLngs.forEach((latLng, index) => {
       L.circleMarker(latLng, {
-        radius: index === 0 ? 8 : 5,
+        radius: index === 0 ? 9 : 7,
         color: "#ffffff",
         weight: 2,
         fillColor: index === 0 ? "#1f4d32" : style.fillColor,
         fillOpacity: 1,
+        interactive: false,
       }).addTo(draftLayer);
     });
   }
@@ -220,6 +250,7 @@ export function createMap(element, onUpdate) {
     renderShapes();
     renderHandles();
     renderDraft();
+    syncInteraction();
   }
 
   function removeShape(id) {
@@ -240,6 +271,7 @@ export function createMap(element, onUpdate) {
       shapes.extras.push(shape);
     }
     draft = null;
+    panMode = false;
     selectedId = shape.id;
     editing = true;
     selectedVertex = null;
@@ -248,6 +280,7 @@ export function createMap(element, onUpdate) {
   }
 
   function addDraftPoint(latLng) {
+    if (!draft || panMode) return;
     const coord = [latLng.lng, latLng.lat];
     const last = draft.points[draft.points.length - 1];
     if (last && metersBetween(last[0], last[1], coord[0], coord[1]) < 1.5) return;
@@ -298,24 +331,50 @@ export function createMap(element, onUpdate) {
     return true;
   }
 
+  function pointerOnControl(event) {
+    return Boolean(event.target?.closest?.(".leaflet-control, button, a"));
+  }
+
+  map.getContainer().addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.button != null && event.button !== 0) return;
+      if (pointerOnControl(event)) {
+        gesture = null;
+        return;
+      }
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    },
+    true,
+  );
+  map.getContainer().addEventListener(
+    "pointerup",
+    (event) => {
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const start = gesture;
+      gesture = null;
+      if (!placing() || pointerOnControl(event)) return;
+      const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (moved > 12) return;
+      addDraftPoint(map.mouseEventToLatLng(event));
+      ignoreClickUntil = Date.now() + 450;
+    },
+    true,
+  );
+  map.getContainer().addEventListener("pointercancel", () => {
+    gesture = null;
+  });
+
   map.on("click", (event) => {
-    if (suppressClick) {
+    if (Date.now() < ignoreClickUntil || suppressClick) {
       suppressClick = false;
       return;
     }
-    if (draft) {
+    if (placing()) {
       addDraftPoint(event.latlng);
       return;
     }
-    if (editing && selectedShape()) {
-      if (!insertOrSelect(event.latlng)) {
-        selectedId = null;
-        editing = false;
-        selectedVertex = null;
-        renderAll();
-        emit();
-      }
-    }
+    if (editing && selectedShape() && !panMode) insertOrSelect(event.latlng);
   });
 
   new ResizeObserver(() => map.invalidateSize()).observe(element);
@@ -364,6 +423,7 @@ export function createMap(element, onUpdate) {
         .filter((extra) => extra.rings.length),
     };
     draft = null;
+    panMode = false;
     selectedId = null;
     editing = false;
     selectedVertex = null;
@@ -384,6 +444,7 @@ export function createMap(element, onUpdate) {
   function clearShapes() {
     shapes = { lot: null, house: null, extras: [] };
     draft = null;
+    panMode = false;
     selectedId = null;
     editing = false;
     selectedVertex = null;
@@ -409,20 +470,24 @@ export function createMap(element, onUpdate) {
   }
 
   function begin(kind) {
+    panMode = false;
     if (kind === "pan") {
-      draft = null;
-      selectedId = null;
+      panMode = true;
       editing = false;
       selectedVertex = null;
       renderAll();
       emit();
       return;
     }
-    if ((kind === "lot" || kind === "house") && shapes[kind]) {
-      draft = null;
+    if ((kind === "lot" || kind === "house") && shapes[kind] && !draft) {
       selectedId = kind;
       editing = true;
       selectedVertex = null;
+      renderAll();
+      emit();
+      return;
+    }
+    if (draft?.kind === kind) {
       renderAll();
       emit();
       return;
@@ -431,6 +496,12 @@ export function createMap(element, onUpdate) {
     selectedId = null;
     editing = false;
     selectedVertex = null;
+    renderAll();
+    emit();
+  }
+
+  function setPanMode(on) {
+    panMode = Boolean(on);
     renderAll();
     emit();
   }
@@ -449,13 +520,15 @@ export function createMap(element, onUpdate) {
   function cancelDraft() {
     if (!draft) return;
     draft = null;
-    renderDraft();
+    panMode = false;
+    renderAll();
     emit();
   }
 
   function deleteSelected() {
     if (!selectedId) return;
     removeShape(selectedId);
+    panMode = false;
     selectedId = null;
     editing = false;
     selectedVertex = null;
@@ -477,6 +550,7 @@ export function createMap(element, onUpdate) {
     if (!shape) return;
     const kind = shape.kind;
     removeShape(shape.id);
+    panMode = false;
     draft = { kind, points: [] };
     selectedId = null;
     editing = false;
@@ -497,6 +571,7 @@ export function createMap(element, onUpdate) {
     clearShapes,
     fit,
     begin,
+    setPanMode,
     undo,
     closeDraft,
     cancelDraft,

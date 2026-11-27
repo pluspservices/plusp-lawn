@@ -18,6 +18,7 @@ const KIND_LABEL = {
   patio: "patio",
   pool: "pool",
   beds: "beds",
+  other: "other",
 };
 
 const SUBTRACT_KINDS = ["driveway", "patio", "pool", "beds"];
@@ -33,10 +34,10 @@ const els = {
   hintText: document.querySelector("#hint-text"),
   undo: document.querySelector("#undo-point"),
   closeShape: document.querySelector("#close-shape"),
-  cancelDraw: document.querySelector("#cancel-draw"),
-  deleteVertex: document.querySelector("#delete-vertex"),
+  moveMap: document.querySelector("#move-map"),
   redraw: document.querySelector("#redraw-shape"),
-  deleteShape: document.querySelector("#delete-shape"),
+  deleteDraw: document.querySelector("#delete-draw"),
+  excludeTypes: document.querySelector("#exclude-types"),
   mowable: document.querySelector("#mowable-value"),
   areas: document.querySelector("#areas"),
   adjust: document.querySelector("#adjust-note"),
@@ -84,7 +85,7 @@ function blankProperty() {
 }
 
 function emptySnapshot() {
-  return { draft: null, selected: null, shapes: { lot: null, house: null, extras: [] } };
+  return { draft: null, selected: null, panning: false, shapes: { lot: null, house: null, extras: [] } };
 }
 
 function sameGeometry(a, b) {
@@ -206,41 +207,43 @@ function sourceLine() {
 }
 
 function renderHint() {
-  const { draft, selected } = snapshot;
+  const { draft, selected, panning } = snapshot;
   const drawing = Boolean(draft);
-  els.hint.hidden = !drawing && !selected;
+  const active = drawing || Boolean(selected);
+  els.hint.hidden = !active;
   els.undo.hidden = !drawing;
   els.closeShape.hidden = !drawing;
-  els.cancelDraw.hidden = !drawing;
-  els.deleteVertex.hidden = !selected?.canDeleteVertex;
-  els.redraw.hidden = !selected;
-  els.deleteShape.hidden = !selected;
+  els.moveMap.hidden = !active;
+  els.redraw.hidden = drawing || !selected;
+  els.deleteDraw.hidden = !active;
   if (drawing) {
     const name = KIND_LABEL[draft.kind] || "shape";
-    els.hintText.textContent =
-      draft.count < 3
-        ? `Tap each corner of the ${name}. ${draft.count} point${draft.count === 1 ? "" : "s"} so far.`
-        : `Tap the first corner, or Close shape, to finish the ${name}.`;
-    els.closeShape.disabled = !draft.canClose;
-    els.undo.disabled = draft.count === 0;
-    return;
-  }
-  if (selected) {
+    els.hintText.textContent = panning
+      ? `Slide the map, then tap Move map again to keep tracing the ${name}. ${draft.count} point${draft.count === 1 ? "" : "s"} so far.`
+      : draft.count < 3
+        ? `Tap each corner of the ${name} on the photo. The map stays still. ${draft.count} point${draft.count === 1 ? "" : "s"} so far.`
+        : `Tap the next corner, or Finish. ${draft.count} points.`;
+    els.closeShape.disabled = !draft.canClose || panning;
+    els.undo.disabled = draft.count === 0 || panning;
+  } else if (selected) {
     const name = KIND_LABEL[selected.kind] || "shape";
-    els.hintText.textContent =
-      selected.vertex != null
-        ? `Corner ${selected.vertex + 1} of the ${name} is selected. Drag it, or delete it.`
-        : `Drag the corners of the ${name}. Tap an edge to add a corner.`;
+    els.hintText.textContent = panning
+      ? `Slide the map, then tap Move map again to drag the ${name} corners.`
+      : `Drag the corners of the ${name}, or tap an edge to add one. Redraw traces it again.`;
   }
+  els.moveMap.textContent = panning ? "Done moving" : "Move map";
+  els.moveMap.setAttribute("aria-pressed", panning ? "true" : "false");
 }
 
 function renderTools() {
-  const tool = snapshot.draft?.kind || snapshot.selected?.kind || "pan";
-  document.querySelectorAll("[data-tool]").forEach((button) => {
-    const on = button.dataset.tool === tool;
+  const kind = snapshot.draft?.kind || snapshot.selected?.kind || "";
+  document.querySelectorAll("[data-exclude]").forEach((button) => {
+    const on = button.dataset.exclude === kind;
     button.classList.toggle("on", on);
     button.setAttribute("aria-pressed", on ? "true" : "false");
   });
+  document.querySelector("#adjust-lot").classList.toggle("on", kind === "lot");
+  document.querySelector("#adjust-house").classList.toggle("on", kind === "house");
 }
 
 function render() {
@@ -259,15 +262,11 @@ function render() {
       totals.roof ? "Includes other roofs on the lot." : "",
     ),
   );
-  for (const kind of SUBTRACT_KINDS) {
+  const extraKinds = totals.other ? [...SUBTRACT_KINDS, "other"] : SUBTRACT_KINDS;
+  for (const kind of extraKinds) {
     const drawn = snapshot.shapes.extras.some((extra) => extra.kind === kind);
-    els.areas.append(
-      areaRow(
-        KIND_LABEL[kind][0].toUpperCase() + KIND_LABEL[kind].slice(1),
-        drawn ? formatSqft(totals[kind] || 0) : "Not drawn",
-        kind,
-      ),
-    );
+    const label = KIND_LABEL[kind][0].toUpperCase() + KIND_LABEL[kind].slice(1);
+    els.areas.append(areaRow(label, drawn ? formatSqft(totals[kind] || 0) : "Not drawn", kind));
   }
 
   const showAdjust = hasLot && measurement.adjusted;
@@ -571,20 +570,45 @@ function renderSaved() {
   }
 }
 
+function showMap() {
+  document.querySelector(".stage").scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
 els.search.addEventListener("submit", onSubmit);
 els.addRoofs.addEventListener("click", addOtherRoofs);
-document.querySelectorAll("[data-tool]").forEach((button) => {
-  button.addEventListener("click", () => map.begin(button.dataset.tool));
+document.querySelector("#draw-exclude").addEventListener("click", () => {
+  els.excludeTypes.hidden = !els.excludeTypes.hidden;
+});
+document.querySelectorAll("[data-exclude]").forEach((button) => {
+  button.addEventListener("click", () => {
+    map.begin(button.dataset.exclude);
+    showMap();
+  });
+});
+document.querySelector("#adjust-lot").addEventListener("click", () => {
+  map.begin("lot");
+  showMap();
+});
+document.querySelector("#adjust-house").addEventListener("click", () => {
+  map.begin("house");
+  showMap();
 });
 els.undo.addEventListener("click", () => map.undo());
 els.closeShape.addEventListener("click", () => map.closeDraft());
-els.cancelDraw.addEventListener("click", () => map.cancelDraft());
-els.deleteVertex.addEventListener("click", () => map.deleteSelectedVertex());
-els.deleteShape.addEventListener("click", () => {
-  if (window.confirm("Delete this shape?")) map.deleteSelected();
-});
+els.moveMap.addEventListener("click", () => map.setPanMode(!snapshot.panning));
 els.redraw.addEventListener("click", () => {
-  if (window.confirm("Redraw this shape? The current corners will be cleared.")) map.redrawSelected();
+  if (window.confirm("Trace this shape again? The current corners will be cleared.")) map.redrawSelected();
+});
+els.deleteDraw.addEventListener("click", () => {
+  if (snapshot.draft) {
+    map.cancelDraft();
+    return;
+  }
+  if (snapshot.selected?.canDeleteVertex) {
+    map.deleteSelectedVertex();
+    return;
+  }
+  if (snapshot.selected && window.confirm("Delete this shape?")) map.deleteSelected();
 });
 document.querySelector("#edit-rates").addEventListener("click", () => {
   fillRatesForm();

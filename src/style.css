@@ -163,33 +163,55 @@ h1 {
 
 #map { height: 100%; width: 100%; background: #cfc6b8; }
 
-.drawbar {
-  position: absolute;
-  z-index: 500;
-  top: 8px;
-  left: 8px;
-  right: 52px;
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
+.draw-panel {
+  margin: 10px 12px 0;
+  display: grid;
+  gap: 8px;
 }
 
-.drawbar::-webkit-scrollbar { display: none; }
+#draw-exclude,
+.type-picker button,
+.outline-actions button,
+.hint-actions button {
+  min-height: 48px;
+  font-size: 16px;
+}
 
-.drawbar button {
-  flex: 0 0 auto;
-  min-height: 40px;
-  padding: 0 12px;
-  background: rgba(28, 25, 21, 0.82);
+#draw-exclude { width: 100%; }
+
+.type-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.type-picker button {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.type-picker button.on,
+.outline-actions button.on {
+  background: var(--green);
   color: #f6f3ec;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-color: var(--green);
 }
 
-.drawbar button.on {
-  background: #f6f3ec;
-  color: var(--green-deep);
-  border-color: #f6f3ec;
+.outline-actions { display: flex; gap: 8px; }
+
+.outline-actions button { flex: 1; }
+
+#map.is-drawing,
+#map.is-drawing .leaflet-container {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#map.is-drawing .leaflet-overlay-pane,
+#map.is-drawing .leaflet-marker-pane,
+#map.is-drawing .leaflet-shadow-pane {
+  pointer-events: none;
 }
 
 .pin,
@@ -213,9 +235,9 @@ h1 {
 .vertex span {
   display: block;
   box-sizing: border-box;
-  width: 18px;
-  height: 18px;
-  margin: 9px;
+  width: 22px;
+  height: 22px;
+  margin: 11px;
   border-radius: 50%;
   background: #fff;
   border: 3px solid #1f4d32;
@@ -246,7 +268,21 @@ h1 {
 
 .hint-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.hint-actions button { min-height: 40px; }
+.hint-actions button { flex: 1 1 120px; }
+
+#move-map[aria-pressed="true"] {
+  background: var(--green);
+  color: #f6f3ec;
+}
+
+@media (max-width: 959px) {
+  .hint:not([hidden]) {
+    position: sticky;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 40;
+    box-shadow: var(--shadow);
+  }
+}
 
 .sheet {
   margin: 12px;
@@ -321,6 +357,7 @@ h2:first-child { margin-top: 0; }
 .swatch.patio { background: #d7b56a; }
 .swatch.pool { background: #2b8cbf; }
 .swatch.beds { background: #1f4d32; }
+.swatch.other { background: #7a4e8a; }
 
 .note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
 
@@ -466,7 +503,7 @@ dialog menu {
     margin-right: 0;
   }
 
-  .hint { margin-right: 0; }
+  .hint, .draw-panel { margin-right: 0; }
 
   .sheet {
     margin-left: 0;

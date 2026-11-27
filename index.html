@@ -48,25 +48,29 @@
         <div>
           <div class="stage">
             <div id="map" role="application" aria-label="Satellite map of the property"></div>
-            <div class="drawbar" role="toolbar" aria-label="Drawing tools">
-              <button type="button" data-tool="pan" class="on" aria-pressed="true">Move</button>
-              <button type="button" data-tool="lot" aria-pressed="false">Lot</button>
-              <button type="button" data-tool="house" aria-pressed="false">House</button>
-              <button type="button" data-tool="driveway" aria-pressed="false">Driveway</button>
-              <button type="button" data-tool="patio" aria-pressed="false">Patio</button>
-              <button type="button" data-tool="pool" aria-pressed="false">Pool</button>
-              <button type="button" data-tool="beds" aria-pressed="false">Beds</button>
+          </div>
+          <div class="draw-panel">
+            <button type="button" id="draw-exclude">+ Draw area to exclude</button>
+            <div id="exclude-types" class="type-picker" hidden>
+              <button type="button" data-exclude="patio">Patio</button>
+              <button type="button" data-exclude="driveway">Driveway</button>
+              <button type="button" data-exclude="beds">Beds</button>
+              <button type="button" data-exclude="pool">Pool</button>
+              <button type="button" data-exclude="other">Other</button>
+            </div>
+            <div class="outline-actions">
+              <button type="button" id="adjust-lot" class="ghost">Adjust lot</button>
+              <button type="button" id="adjust-house" class="ghost">Adjust house</button>
             </div>
           </div>
           <div id="hint" class="hint" hidden>
             <p id="hint-text"></p>
             <div class="hint-actions">
               <button type="button" id="undo-point" class="ghost">Undo</button>
-              <button type="button" id="close-shape">Close shape</button>
-              <button type="button" id="cancel-draw" class="ghost">Cancel</button>
-              <button type="button" id="delete-vertex" class="ghost">Delete corner</button>
+              <button type="button" id="close-shape">Finish</button>
+              <button type="button" id="move-map" class="ghost" aria-pressed="false">Move map</button>
               <button type="button" id="redraw-shape" class="ghost">Redraw</button>
-              <button type="button" id="delete-shape" class="ghost">Delete shape</button>
+              <button type="button" id="delete-draw" class="ghost">Delete</button>
             </div>
           </div>
         </div>
